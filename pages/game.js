@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { data } from '../data/turing_data';
+import { useGame } from '../contexts/GameContext';
+import GameSettings from '../components/GameSettings';
+import Comments from '../components/Comments';
 
 const getUniqueConditions = () => {
   const all = data.map(item => item.condition?.trim() || 'Uncategorized');
@@ -8,6 +11,18 @@ const getUniqueConditions = () => {
 };
 
 export default function Game() {
+  const {
+    darkMode,
+    gameMode,
+    timeLimit,
+    fontSize,
+    addResponseTime,
+    updateThemeStats,
+    personalBest,
+    setPersonalBest,
+    addToLeaderboard
+  } = useGame();
+
   const [selectedTheme, setSelectedTheme] = useState('');
   const [shuffledData, setShuffledData] = useState([]);
   const [index, setIndex] = useState(0);
@@ -16,6 +31,10 @@ export default function Game() {
   const [currentItem, setCurrentItem] = useState(null);
   const [responseToShow, setResponseToShow] = useState(null);
   const [gameStarted, setGameStarted] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(timeLimit);
+  const [startTime, setStartTime] = useState(null);
+  const timerRef = useRef(null);
 
   const conditions = getUniqueConditions();
 
@@ -36,37 +55,110 @@ export default function Game() {
     setCurrentItem(null);
     setResponseToShow(null);
     setGameStarted(true);
+    setTimeLeft(timeLimit);
+    setStartTime(Date.now());
   };
 
+  // Handle timeout for each question
+  useEffect(() => {
+    if (gameStarted && !finished) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current);
+            handleTimeout();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [gameStarted, finished]);
+
+  // Reset timer for new question
   useEffect(() => {
     if (shuffledData.length > 0 && index < shuffledData.length) {
       const item = shuffledData[index];
       const showHuman = Math.random() > 0.5;
       setCurrentItem(item);
       setResponseToShow(showHuman ? item.human : item.ai);
+      setTimeLeft(timeLimit);
+      setStartTime(Date.now());
     } else if (shuffledData.length > 0 && index >= shuffledData.length) {
       setFinished(true);
+      const totalTime = Date.now() - startTime;
+      addToLeaderboard(score, totalTime);
+      if (score > personalBest) {
+        setPersonalBest(score);
+      }
     }
-  }, [shuffledData, index]);
+  }, [shuffledData, index, score, personalBest, startTime, addToLeaderboard, setPersonalBest, timeLimit]);
+
+  const handleTimeout = () => {
+    if (!currentItem || !responseToShow) return;
+    
+    // Count timeout as incorrect answer
+    updateThemeStats(currentItem.condition, false, startTime);
+    setIndex(prev => prev + 1);
+  };
 
   const handleSwipe = (direction) => {
     if (!currentItem || !responseToShow) return;
 
     const isHuman = responseToShow === currentItem.human;
     const correctGuess = (direction === 'right' && isHuman) || (direction === 'left' && !isHuman);
+    const responseTime = (Date.now() - startTime) / 1000;
 
-    if (correctGuess) setScore(prev => prev + 1);
+    if (correctGuess) {
+      setScore(prev => prev + 1);
+      addResponseTime(responseTime);
+      updateThemeStats(currentItem.condition, true, startTime);
+    } else {
+      updateThemeStats(currentItem.condition, false, startTime);
+    }
+
     setIndex(prev => prev + 1);
   };
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (!gameStarted || finished) return;
+      
+      if (e.key === 'ArrowRight') handleSwipe('right');
+      else if (e.key === 'ArrowLeft') handleSwipe('left');
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [gameStarted, finished, currentItem, responseToShow]);
+
   if (!gameStarted) {
     return (
-      <div style={{ textAlign: 'center', marginTop: '15vh' }}>
+      <div style={{ 
+        textAlign: 'center', 
+        marginTop: '15vh',
+        color: darkMode ? '#fff' : '#000',
+        fontSize: `${fontSize}px`
+      }}>
         <h2>Select a Condition to Begin</h2>
         <select
           value={selectedTheme}
           onChange={(e) => setSelectedTheme(e.target.value)}
-          style={{ padding: 10, fontSize: 16, borderRadius: 8, marginTop: 20 }}
+          style={{ 
+            padding: 10, 
+            fontSize: `${fontSize}px`, 
+            borderRadius: 8, 
+            marginTop: 20,
+            background: darkMode ? '#333' : '#fff',
+            color: darkMode ? '#fff' : '#000'
+          }}
         >
           <option value=''>All Topics</option>
           {conditions.map((cond, idx) => (
@@ -79,7 +171,7 @@ export default function Game() {
           style={{
             marginTop: 30,
             padding: '10px 20px',
-            fontSize: '1rem',
+            fontSize: `${fontSize}px`,
             borderRadius: '8px',
             backgroundColor: '#0070f3',
             color: 'white',
@@ -89,24 +181,57 @@ export default function Game() {
         >
           ▶ Start Game
         </button>
+        <button
+          onClick={() => setShowSettings(true)}
+          style={{
+            marginTop: 20,
+            marginLeft: 10,
+            padding: '10px 20px',
+            fontSize: `${fontSize}px`,
+            borderRadius: '8px',
+            backgroundColor: '#666',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          ⚙️ Settings
+        </button>
+        {showSettings && <GameSettings />}
       </div>
     );
   }
 
   if (finished) {
     return (
-      <div style={{ textAlign: 'center', marginTop: 100 }}>
+      <div style={{ 
+        textAlign: 'center', 
+        marginTop: 100,
+        color: darkMode ? '#fff' : '#000',
+        fontSize: `${fontSize}px`
+      }}>
         <h1>🎉 Game Over</h1>
         <p>Your score: {score} / {shuffledData.length}</p>
         <button
           onClick={() => {
             setGameStarted(false);
             setSelectedTheme('');
+            setFinished(false);
+            setShuffledData([]);
+            setIndex(0);
+            setScore(0);
+            setCurrentItem(null);
+            setResponseToShow(null);
+            setTimeLeft(timeLimit);
+            setStartTime(null);
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
           }}
           style={{
             marginTop: 20,
             padding: '10px 20px',
-            fontSize: '1rem',
+            fontSize: `${fontSize}px`,
             borderRadius: '8px',
             backgroundColor: '#0070f3',
             color: 'white',
@@ -116,17 +241,33 @@ export default function Game() {
         >
           🔁 Retry & Choose New Theme
         </button>
+        {currentItem && <Comments promptId={currentItem.id} />}
       </div>
     );
   }
 
   return (
-    <div style={{ textAlign: 'center', padding: 20 }}>
+    <div style={{ 
+      textAlign: 'center', 
+      padding: 20,
+      color: darkMode ? '#fff' : '#000',
+      fontSize: `${fontSize}px`
+    }}>
       <h2>Guess: Human or AI?</h2>
       {currentItem && (
         <>
           <p><strong>Prompt:</strong> {currentItem.prompt}</p>
           <p style={{ color: '#999' }}>Question {index + 1} of {shuffledData.length}</p>
+          <div className="timer-container" style={{
+            margin: '10px 0',
+            padding: '5px 10px',
+            borderRadius: '4px',
+            backgroundColor: timeLeft <= 10 ? '#ff4444' : '#666',
+            color: '#fff',
+            display: 'inline-block'
+          }}>
+            Time: {timeLeft}s / {timeLimit}s
+          </div>
         </>
       )}
 
@@ -147,7 +288,7 @@ export default function Game() {
               style={{
                 width: 400,
                 padding: 20,
-                background: '#fff',
+                background: darkMode ? '#333' : '#fff',
                 border: '1px solid #ddd',
                 borderRadius: 12,
                 boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
@@ -156,7 +297,7 @@ export default function Game() {
             >
               {responseToShow}
               <p style={{ fontSize: 12, color: '#999', marginTop: 10 }}>
-                Swipe → if Human, ← if AI
+                Swipe → if Human, ← if AI (or use arrow keys)
               </p>
             </motion.div>
           )}
