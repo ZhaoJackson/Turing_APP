@@ -68,7 +68,6 @@ export default function Game() {
             clearInterval(timerRef.current);
             // Force move to next question when time runs out
             if (currentItem && responseToShow) {
-              updateThemeStats(currentItem.condition, false, startTime);
               setIndex(prev => prev + 1);
             }
             return timeLimit; // Reset to full time limit
@@ -83,7 +82,7 @@ export default function Game() {
         clearInterval(timerRef.current);
       }
     };
-  }, [gameStarted, finished, currentItem, responseToShow, startTime, timeLimit]);
+  }, [gameStarted, finished, currentItem, responseToShow, timeLimit]);
 
   // Reset timer for new question
   useEffect(() => {
@@ -105,7 +104,6 @@ export default function Game() {
             clearInterval(timerRef.current);
             // Force move to next question when time runs out
             if (currentItem && responseToShow) {
-              updateThemeStats(currentItem.condition, false, startTime);
               setIndex(prev => prev + 1);
             }
             return timeLimit;
@@ -115,36 +113,17 @@ export default function Game() {
       }, 1000);
     } else if (shuffledData.length > 0 && index >= shuffledData.length) {
       setFinished(true);
-      const totalTime = Date.now() - startTime;
-      addToLeaderboard(score, totalTime);
-      if (score > personalBest) {
-        setPersonalBest(score);
-      }
     }
-  }, [shuffledData, index, score, personalBest, startTime, addToLeaderboard, setPersonalBest, timeLimit, currentItem, responseToShow]);
-
-  const handleTimeout = () => {
-    if (!currentItem || !responseToShow) return;
-    
-    // Count timeout as incorrect answer
-    updateThemeStats(currentItem.condition, false, startTime);
-    // Immediately move to next question
-    setIndex(prev => prev + 1);
-  };
+  }, [shuffledData, index, timeLimit, currentItem, responseToShow]);
 
   const handleSwipe = (direction) => {
     if (!currentItem || !responseToShow) return;
 
     const isHuman = responseToShow === currentItem.human;
     const correctGuess = (direction === 'right' && isHuman) || (direction === 'left' && !isHuman);
-    const responseTime = (Date.now() - startTime) / 1000;
 
     if (correctGuess) {
       setScore(prev => prev + 1);
-      addResponseTime(responseTime);
-      updateThemeStats(currentItem.condition, true, startTime);
-    } else {
-      updateThemeStats(currentItem.condition, false, startTime);
     }
 
     setIndex(prev => prev + 1);
@@ -166,62 +145,74 @@ export default function Game() {
   if (!gameStarted) {
     return (
       <div style={{ 
-        textAlign: 'center', 
-        marginTop: '15vh',
-        color: darkMode ? '#fff' : '#000',
-        fontSize: `${fontSize}px`
+        position: 'relative',
+        minHeight: '100vh',
+        width: '100%'
       }}>
-        <h2>Select a Condition to Begin</h2>
-        <select
-          value={selectedTheme}
-          onChange={(e) => setSelectedTheme(e.target.value)}
-          style={{ 
-            padding: 10, 
-            fontSize: `${fontSize}px`, 
-            borderRadius: 8, 
-            marginTop: 20,
-            background: darkMode ? '#333' : '#fff',
-            color: darkMode ? '#fff' : '#000'
-          }}
-        >
-          <option value=''>All Topics</option>
-          {conditions.map((cond, idx) => (
-            <option key={idx} value={cond}>{cond}</option>
-          ))}
-        </select>
-        <br />
-        <button
-          onClick={startGame}
-          style={{
-            marginTop: 30,
-            padding: '10px 20px',
-            fontSize: `${fontSize}px`,
-            borderRadius: '8px',
-            backgroundColor: '#0070f3',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          ▶ Start Game
-        </button>
-        <button
-          onClick={() => setShowSettings(true)}
-          style={{
-            marginTop: 20,
-            marginLeft: 10,
-            padding: '10px 20px',
-            fontSize: `${fontSize}px`,
-            borderRadius: '8px',
-            backgroundColor: '#666',
-            color: 'white',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          ⚙️ Settings
-        </button>
-        {showSettings && <GameSettings />}
+        <div style={{
+          position: 'fixed',
+          top: 20,
+          right: 20,
+          zIndex: 1000
+        }}>
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{
+              padding: '8px 16px',
+              fontSize: `${fontSize * 0.8}px`,
+              borderRadius: '8px',
+              backgroundColor: '#666',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            ⚙️ Settings
+          </button>
+        </div>
+        {showSettings && <GameSettings onClose={() => setShowSettings(false)} />}
+        
+        <div style={{ 
+          textAlign: 'center', 
+          marginTop: '15vh',
+          color: darkMode ? '#fff' : '#000',
+          fontSize: `${fontSize}px`
+        }}>
+          <h2>Select a Condition to Begin</h2>
+          <select
+            value={selectedTheme}
+            onChange={(e) => setSelectedTheme(e.target.value)}
+            style={{ 
+              padding: 10, 
+              fontSize: `${fontSize}px`, 
+              borderRadius: 8, 
+              marginTop: 20,
+              background: darkMode ? '#333' : '#fff',
+              color: darkMode ? '#fff' : '#000'
+            }}
+          >
+            <option value=''>All Topics</option>
+            {conditions.map((cond, idx) => (
+              <option key={idx} value={cond}>{cond}</option>
+            ))}
+          </select>
+          <br />
+          <button
+            onClick={startGame}
+            style={{
+              marginTop: 30,
+              padding: '10px 20px',
+              fontSize: `${fontSize}px`,
+              borderRadius: '8px',
+              backgroundColor: '#0070f3',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            ▶ Start Game
+          </button>
+        </div>
       </div>
     );
   }
@@ -235,7 +226,6 @@ export default function Game() {
         fontSize: `${fontSize}px`
       }}>
         <h1>🎉 Game Over</h1>
-        <p>Your score: {score} / {shuffledData.length}</p>
         <button
           onClick={() => {
             setGameStarted(false);
@@ -265,7 +255,6 @@ export default function Game() {
         >
           🔁 Retry & Choose New Theme
         </button>
-        {currentItem && <Comments promptId={currentItem.id} />}
       </div>
     );
   }
