@@ -93,9 +93,8 @@ Full Proposal: *“Human or AI? Using the Turing Test to Share and Deepen Perspe
 
 ## Credits
 
-- Built by [Zichen Zhao (Jackson)](https://linkedin.com/in/zichen-zhao)
+- Built by [Zichen Zhao (Jackson)](https://linkedin.com/in/zichenzhao6/)
 - Columbia School of Social Work · Data Science Research Assistant
-- Special thanks to the CU MHI Panel and PWLEMH contributors
 
 ---
 
