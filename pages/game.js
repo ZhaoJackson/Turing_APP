@@ -66,8 +66,12 @@ export default function Game() {
         setTimeLeft(prev => {
           if (prev <= 1) {
             clearInterval(timerRef.current);
-            handleTimeout();
-            return 0;
+            // Force move to next question when time runs out
+            if (currentItem && responseToShow) {
+              updateThemeStats(currentItem.condition, false, startTime);
+              setIndex(prev => prev + 1);
+            }
+            return timeLimit; // Reset to full time limit
           }
           return prev - 1;
         });
@@ -79,7 +83,7 @@ export default function Game() {
         clearInterval(timerRef.current);
       }
     };
-  }, [gameStarted, finished]);
+  }, [gameStarted, finished, currentItem, responseToShow, startTime, timeLimit]);
 
   // Reset timer for new question
   useEffect(() => {
@@ -90,6 +94,25 @@ export default function Game() {
       setResponseToShow(showHuman ? item.human : item.ai);
       setTimeLeft(timeLimit);
       setStartTime(Date.now());
+      
+      // Clear and restart timer for new question
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current);
+            // Force move to next question when time runs out
+            if (currentItem && responseToShow) {
+              updateThemeStats(currentItem.condition, false, startTime);
+              setIndex(prev => prev + 1);
+            }
+            return timeLimit;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } else if (shuffledData.length > 0 && index >= shuffledData.length) {
       setFinished(true);
       const totalTime = Date.now() - startTime;
@@ -98,13 +121,14 @@ export default function Game() {
         setPersonalBest(score);
       }
     }
-  }, [shuffledData, index, score, personalBest, startTime, addToLeaderboard, setPersonalBest, timeLimit]);
+  }, [shuffledData, index, score, personalBest, startTime, addToLeaderboard, setPersonalBest, timeLimit, currentItem, responseToShow]);
 
   const handleTimeout = () => {
     if (!currentItem || !responseToShow) return;
     
     // Count timeout as incorrect answer
     updateThemeStats(currentItem.condition, false, startTime);
+    // Immediately move to next question
     setIndex(prev => prev + 1);
   };
 
