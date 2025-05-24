@@ -8,14 +8,17 @@ export default function GameSettings({ onClose }) {
     fontSize,
     setFontSize,
     timeLimit,
-    setTimeLimit
+    setTimeLimit,
+    gameMode,
+    setGameMode
   } = useGame();
 
   // Temporary state for settings changes
   const [tempSettings, setTempSettings] = useState({
     darkMode,
     fontSize,
-    timeLimit
+    timeLimit,
+    gameMode
   });
 
   // Update temp settings when modal opens
@@ -23,14 +26,16 @@ export default function GameSettings({ onClose }) {
     setTempSettings({
       darkMode,
       fontSize,
-      timeLimit
+      timeLimit,
+      gameMode
     });
-  }, [darkMode, fontSize, timeLimit]);
+  }, [darkMode, fontSize, timeLimit, gameMode]);
 
   const handleConfirm = () => {
     setDarkMode(tempSettings.darkMode);
     setFontSize(tempSettings.fontSize);
     setTimeLimit(tempSettings.timeLimit);
+    setGameMode(tempSettings.gameMode);
     onClose();
   };
 
@@ -38,7 +43,8 @@ export default function GameSettings({ onClose }) {
     setTempSettings({
       darkMode,
       fontSize,
-      timeLimit
+      timeLimit,
+      gameMode
     });
   };
 
@@ -64,6 +70,42 @@ export default function GameSettings({ onClose }) {
       }}>
         <h2>Settings</h2>
         <div style={{ marginTop: '20px' }}>
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
+              Game Mode
+            </label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setTempSettings(prev => ({ ...prev, gameMode: 'swipe' }))}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  backgroundColor: tempSettings.gameMode === 'swipe' ? '#0070f3' : '#666',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  flex: 1
+                }}
+              >
+                Swipe Mode
+              </button>
+              <button
+                onClick={() => setTempSettings(prev => ({ ...prev, gameMode: 'click' }))}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  backgroundColor: tempSettings.gameMode === 'click' ? '#0070f3' : '#666',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  flex: 1
+                }}
+              >
+                Click Mode
+              </button>
+            </div>
+          </div>
+
           <div style={{ marginBottom: '15px' }}>
             <label style={{ display: 'block', marginBottom: '5px' }}>
               Dark Mode

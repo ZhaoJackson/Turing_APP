@@ -20,13 +20,15 @@ export default function Game() {
     updateThemeStats,
     personalBest,
     setPersonalBest,
-    addToLeaderboard
+    addToLeaderboard,
+    setGameMode
   } = useGame();
 
   const [selectedTheme, setSelectedTheme] = useState('');
   const [shuffledData, setShuffledData] = useState([]);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
+  const [humanCorrect, setHumanCorrect] = useState(0);
   const [finished, setFinished] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [responseToShow, setResponseToShow] = useState(null);
@@ -34,6 +36,7 @@ export default function Game() {
   const [showSettings, setShowSettings] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timeLimit);
   const [startTime, setStartTime] = useState(null);
+  const [isHumanFirst, setIsHumanFirst] = useState(true);
   const timerRef = useRef(null);
 
   const conditions = getUniqueConditions();
@@ -51,6 +54,7 @@ export default function Game() {
     setShuffledData(selected);
     setIndex(0);
     setScore(0);
+    setHumanCorrect(0);
     setFinished(false);
     setCurrentItem(null);
     setResponseToShow(null);
@@ -91,6 +95,7 @@ export default function Game() {
       const showHuman = Math.random() > 0.5;
       setCurrentItem(item);
       setResponseToShow(showHuman ? item.human : item.ai);
+      setIsHumanFirst(Math.random() > 0.5);
       setTimeLeft(timeLimit);
       setStartTime(Date.now());
       
@@ -124,6 +129,23 @@ export default function Game() {
 
     if (correctGuess) {
       setScore(prev => prev + 1);
+      if (isHuman) {
+        setHumanCorrect(prev => prev + 1);
+      }
+    }
+
+    setIndex(prev => prev + 1);
+  };
+
+  const handleClick = (isFirstResponse) => {
+    if (!currentItem) return;
+
+    const isHuman = isFirstResponse ? isHumanFirst : !isHumanFirst;
+    const correctGuess = isHuman;
+
+    if (correctGuess) {
+      setScore(prev => prev + 1);
+      setHumanCorrect(prev => prev + 1);
     }
 
     setIndex(prev => prev + 1);
@@ -134,13 +156,15 @@ export default function Game() {
     const handleKeyPress = (e) => {
       if (!gameStarted || finished) return;
       
-      if (e.key === 'ArrowRight') handleSwipe('right');
-      else if (e.key === 'ArrowLeft') handleSwipe('left');
+      if (gameMode === 'swipe') {
+        if (e.key === 'ArrowRight') handleSwipe('right');
+        else if (e.key === 'ArrowLeft') handleSwipe('left');
+      }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [gameStarted, finished, currentItem, responseToShow]);
+  }, [gameStarted, finished, currentItem, responseToShow, gameMode]);
 
   if (!gameStarted) {
     return (
@@ -226,6 +250,9 @@ export default function Game() {
         fontSize: `${fontSize}px`
       }}>
         <h1>🎉 Game Over</h1>
+        <div style={{ marginTop: 20 }}>
+          <p>Human Responses Correctly Identified: {humanCorrect} out of {shuffledData.length}</p>
+        </div>
         <button
           onClick={() => {
             setGameStarted(false);
@@ -234,6 +261,7 @@ export default function Game() {
             setShuffledData([]);
             setIndex(0);
             setScore(0);
+            setHumanCorrect(0);
             setCurrentItem(null);
             setResponseToShow(null);
             setTimeLeft(timeLimit);
@@ -284,38 +312,85 @@ export default function Game() {
         </>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 40 }}>
-        <AnimatePresence>
-          {responseToShow && (
-            <motion.div
-              key={index}
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              onDragEnd={(e, info) => {
-                if (info.offset.x > 100) handleSwipe('right');
-                else if (info.offset.x < -100) handleSwipe('left');
-              }}
-              initial={{ opacity: 0, x: 100 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0 }}
-              style={{
-                width: 400,
-                padding: 20,
-                background: darkMode ? '#333' : '#fff',
-                border: '1px solid #ddd',
-                borderRadius: 12,
-                boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
-                cursor: 'grab'
-              }}
-            >
-              {responseToShow}
-              <p style={{ fontSize: 12, color: '#999', marginTop: 10 }}>
-                Swipe → if Human, ← if AI (or use arrow keys)
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {gameMode === 'swipe' ? (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 40 }}>
+          <AnimatePresence>
+            {responseToShow && (
+              <motion.div
+                key={index}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                onDragEnd={(e, info) => {
+                  if (info.offset.x > 100) handleSwipe('right');
+                  else if (info.offset.x < -100) handleSwipe('left');
+                }}
+                initial={{ opacity: 0, x: 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0 }}
+                style={{
+                  width: 400,
+                  padding: 20,
+                  background: darkMode ? '#333' : '#fff',
+                  border: '1px solid #ddd',
+                  borderRadius: 12,
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+                  cursor: 'grab'
+                }}
+              >
+                {responseToShow}
+                <p style={{ fontSize: 12, color: '#999', marginTop: 10 }}>
+                  Swipe → if Human, ← if AI (or use arrow keys)
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: 40 }}>
+          <AnimatePresence>
+            {currentItem && (
+              <>
+                <motion.div
+                  key={`response-1-${index}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  style={{
+                    width: 400,
+                    padding: 20,
+                    background: darkMode ? '#333' : '#fff',
+                    border: '1px solid #ddd',
+                    borderRadius: 12,
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => handleClick(true)}
+                >
+                  {isHumanFirst ? currentItem.human : currentItem.ai}
+                </motion.div>
+                <motion.div
+                  key={`response-2-${index}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  style={{
+                    width: 400,
+                    padding: 20,
+                    background: darkMode ? '#333' : '#fff',
+                    border: '1px solid #ddd',
+                    borderRadius: 12,
+                    boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => handleClick(false)}
+                >
+                  {isHumanFirst ? currentItem.ai : currentItem.human}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }
